@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 (2026-03-12)
+
+### Added
+
+- `MaxConcurrency` option to limit parallel task execution
+- Per-task timeout support with `TaskTimeoutException`
+- `OnTaskCompleted` progress callback reporting task name and completion count
+
 ## 0.1.1 (2026-03-10)
 
 - Fix README path in csproj so README displays on nuget.org

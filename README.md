@@ -48,6 +48,65 @@ var graph = new TaskGraph()
 await graph.RunAsync();
 ```
 
+### Max concurrency
+
+Limit how many tasks run in parallel to avoid overwhelming resources:
+
+```csharp
+var graph = new TaskGraph { MaxConcurrency = 2 };
+
+graph
+    .Add("a", async () => await Task.Delay(100))
+    .Add("b", async () => await Task.Delay(100))
+    .Add("c", async () => await Task.Delay(100))
+    .Add("d", async () => await Task.Delay(100));
+
+// At most 2 tasks will execute simultaneously
+await graph.RunAsync();
+```
+
+### Per-task timeout
+
+Set a timeout on individual tasks. If the timeout elapses, a `TaskTimeoutException` is thrown:
+
+```csharp
+var graph = new TaskGraph()
+    .Add("fast", () => Console.WriteLine("Done"))
+    .Add("slow", async () => await Task.Delay(10_000), timeout: TimeSpan.FromSeconds(2));
+
+try
+{
+    await graph.RunAsync();
+}
+catch (TaskTimeoutException ex)
+{
+    Console.WriteLine($"{ex.TaskName} timed out");
+}
+```
+
+### Progress reporting
+
+Track execution progress with the `OnTaskCompleted` callback:
+
+```csharp
+var graph = new TaskGraph
+{
+    OnTaskCompleted = (name, done, total) =>
+        Console.WriteLine($"[{done}/{total}] {name} completed")
+};
+
+graph
+    .Add("clean",   () => { })
+    .Add("build",   () => { }, dependsOn: "clean")
+    .Add("test",    () => { }, dependsOn: "build");
+
+await graph.RunAsync();
+// Output:
+// [1/3] clean completed
+// [2/3] build completed
+// [3/3] test completed
+```
+
 ### Error handling
 
 ```csharp
@@ -71,12 +130,16 @@ await missing.RunAsync();
 
 ### `TaskGraph`
 
-| Method | Description |
+| Member | Description |
 |--------|-------------|
 | `Add(name, Action, params string[] dependsOn)` | Register a synchronous task |
 | `Add(name, Func<Task>, params string[] dependsOn)` | Register an async task |
+| `Add(name, Action, TimeSpan? timeout, params string[] dependsOn)` | Register a synchronous task with timeout |
+| `Add(name, Func<Task>, TimeSpan? timeout, params string[] dependsOn)` | Register an async task with timeout |
 | `GetExecutionOrder()` | Return names in topological order |
 | `RunAsync(CancellationToken)` | Execute all tasks; independent tasks run in parallel |
+| `MaxConcurrency` | Max parallel tasks (0 = unlimited, default) |
+| `OnTaskCompleted` | `Action<string, int, int>?` callback (taskName, completedCount, totalCount) |
 
 ### Exceptions
 
@@ -84,6 +147,7 @@ await missing.RunAsync();
 |------|-------------|
 | `CircularDependencyException` | The graph contains a cycle |
 | `MissingDependencyException` | A task depends on an unregistered name |
+| `TaskTimeoutException` | A task exceeded its configured timeout (`TaskName` property) |
 
 ## License
 
