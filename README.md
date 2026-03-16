@@ -153,6 +153,12 @@ await missing.RunAsync();
 | `MissingDependencyException` | A task depends on an unregistered name |
 | `TaskTimeoutException` | A task exceeded its configured timeout (`TaskName` property) |
 
+## Development
+
+```bash
+dotnet build src/Philiprehberger.TaskDependencyRunner.csproj --configuration Release
+```
+
 ## License
 
 MIT
