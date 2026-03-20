@@ -5,9 +5,16 @@ namespace Philiprehberger.TaskDependencyRunner;
 /// </summary>
 public sealed class CircularDependencyException : Exception
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CircularDependencyException"/> class with a default message.
+    /// </summary>
     public CircularDependencyException()
         : base("A circular dependency was detected in the task graph.") { }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CircularDependencyException"/> class with a custom message.
+    /// </summary>
+    /// <param name="message">The error message describing the circular dependency.</param>
     public CircularDependencyException(string message) : base(message) { }
 }
 
@@ -16,9 +23,16 @@ public sealed class CircularDependencyException : Exception
 /// </summary>
 public sealed class MissingDependencyException : Exception
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MissingDependencyException"/> class with a default message.
+    /// </summary>
     public MissingDependencyException()
         : base("A task references a dependency that does not exist.") { }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MissingDependencyException"/> class with a custom message.
+    /// </summary>
+    /// <param name="message">The error message describing the missing dependency.</param>
     public MissingDependencyException(string message) : base(message) { }
 }
 
@@ -32,12 +46,21 @@ public sealed class TaskTimeoutException : Exception
     /// </summary>
     public string TaskName { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TaskTimeoutException"/> class with a default message.
+    /// </summary>
+    /// <param name="taskName">The name of the task that timed out.</param>
     public TaskTimeoutException(string taskName)
         : base($"Task '{taskName}' exceeded its timeout.")
     {
         TaskName = taskName;
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TaskTimeoutException"/> class with a custom message.
+    /// </summary>
+    /// <param name="taskName">The name of the task that timed out.</param>
+    /// <param name="message">The error message describing the timeout.</param>
     public TaskTimeoutException(string taskName, string message) : base(message)
     {
         TaskName = taskName;
