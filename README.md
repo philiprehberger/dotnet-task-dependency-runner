@@ -6,7 +6,7 @@
 
 A lightweight task runner that resolves a dependency graph and runs independent tasks in parallel. Uses Kahn's topological sort algorithm.
 
-## Install
+## Installation
 
 ```bash
 dotnet add package Philiprehberger.TaskDependencyRunner
