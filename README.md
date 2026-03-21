@@ -4,7 +4,7 @@
 [![NuGet](https://img.shields.io/nuget/v/Philiprehberger.TaskDependencyRunner.svg)](https://www.nuget.org/packages/Philiprehberger.TaskDependencyRunner)
 [![License](https://img.shields.io/github/license/philiprehberger/dotnet-task-dependency-runner)](LICENSE)
 
-A lightweight task runner that resolves a dependency graph and runs independent tasks in parallel. Uses Kahn's topological sort algorithm.
+Lightweight task runner with dependency graph resolution and parallel execution.
 
 ## Installation
 

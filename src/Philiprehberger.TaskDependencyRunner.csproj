@@ -7,9 +7,9 @@
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <PackageId>Philiprehberger.TaskDependencyRunner</PackageId>
-    <Version>0.2.3</Version>
+    <Version>0.2.4</Version>
     <Authors>Philip Rehberger</Authors>
-    <Description>Lightweight task runner with dependency graph and parallel execution</Description>
+    <Description>Lightweight task runner with dependency graph resolution and parallel execution.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/philiprehberger/dotnet-task-dependency-runner</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
