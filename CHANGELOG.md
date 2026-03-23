@@ -1,10 +1,14 @@
 # Changelog
 
+## 0.2.5 (2026-03-22)
+
+- Add dates to changelog entries
+
 ## 0.2.4 (2026-03-20)
 
 - Align README and csproj descriptions
 
-## 0.2.3
+## 0.2.3 (2026-03-16)
 
 - Add Development section to README
 - Add GenerateDocumentationFile and RepositoryType to .csproj
