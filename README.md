@@ -3,6 +3,7 @@
 [![CI](https://github.com/philiprehberger/dotnet-task-dependency-runner/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/dotnet-task-dependency-runner/actions/workflows/ci.yml)
 [![NuGet](https://img.shields.io/nuget/v/Philiprehberger.TaskDependencyRunner.svg)](https://www.nuget.org/packages/Philiprehberger.TaskDependencyRunner)
 [![License](https://img.shields.io/github/license/philiprehberger/dotnet-task-dependency-runner)](LICENSE)
+[![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ec6cb9)](https://github.com/sponsors/philiprehberger)
 
 Lightweight task runner with dependency graph resolution and parallel execution.
 
