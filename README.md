@@ -2,7 +2,11 @@
 
 [![CI](https://github.com/philiprehberger/dotnet-task-dependency-runner/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/dotnet-task-dependency-runner/actions/workflows/ci.yml)
 [![NuGet](https://img.shields.io/nuget/v/Philiprehberger.TaskDependencyRunner.svg)](https://www.nuget.org/packages/Philiprehberger.TaskDependencyRunner)
+[![GitHub release](https://img.shields.io/github/v/release/philiprehberger/dotnet-task-dependency-runner)](https://github.com/philiprehberger/dotnet-task-dependency-runner/releases)
+[![Last updated](https://img.shields.io/github/last-commit/philiprehberger/dotnet-task-dependency-runner)](https://github.com/philiprehberger/dotnet-task-dependency-runner/commits/main)
 [![License](https://img.shields.io/github/license/philiprehberger/dotnet-task-dependency-runner)](LICENSE)
+[![Bug Reports](https://img.shields.io/github/issues/philiprehberger/dotnet-task-dependency-runner/bug)](https://github.com/philiprehberger/dotnet-task-dependency-runner/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
+[![Feature Requests](https://img.shields.io/github/issues/philiprehberger/dotnet-task-dependency-runner/enhancement)](https://github.com/philiprehberger/dotnet-task-dependency-runner/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
 [![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ec6cb9)](https://github.com/sponsors/philiprehberger)
 
 Lightweight task runner with dependency graph resolution and parallel execution.
@@ -20,54 +24,38 @@ using Philiprehberger.TaskDependencyRunner;
 
 var graph = new TaskGraph()
     .Add("clean",   () => Console.WriteLine("Cleaning..."))
-    .Add("restore", () => Console.WriteLine("Restoring packages..."), dependsOn: "clean")
-    .Add("build",   () => Console.WriteLine("Building..."),           dependsOn: "restore")
-    .Add("test",    () => Console.WriteLine("Running tests..."),       dependsOn: "build")
-    .Add("pack",    () => Console.WriteLine("Packing..."),             dependsOn: "build");
+    .Add("restore", () => Console.WriteLine("Restoring packages..."), "clean")
+    .Add("build",   () => Console.WriteLine("Building..."),           "restore")
+    .Add("test",    () => Console.WriteLine("Running tests..."),       "build")
+    .Add("pack",    () => Console.WriteLine("Packing..."),             "build");
 
-// Inspect order
-var order = graph.GetExecutionOrder();
-Console.WriteLine(string.Join(" -> ", order));
-// clean -> restore -> build -> test -> pack
-// (test and pack may run in parallel)
-
-// Execute
 await graph.RunAsync();
 ```
 
-### Async tasks
+### Typed task results
+
+Tasks can produce results that downstream tasks consume via `ITaskContext`:
 
 ```csharp
+using Philiprehberger.TaskDependencyRunner;
+
 var graph = new TaskGraph()
-    .Add("fetch", async () =>
+    .Add<int>("fetch-count", _ => Task.FromResult(42))
+    .Add<string>("format", ctx =>
     {
-        await Task.Delay(100);
-        Console.WriteLine("Fetched data");
-    })
-    .Add("process", async () =>
+        var count = ctx.GetResult<int>("fetch-count");
+        return Task.FromResult($"Total: {count}");
+    }, "fetch-count")
+    .Add("print", (ctx) =>
     {
-        await Task.Delay(50);
-        Console.WriteLine("Processed");
-    }, dependsOn: "fetch");
+        Console.WriteLine(ctx.GetResult<string>("format"));
+        return Task.CompletedTask;
+    }, "format");
 
 await graph.RunAsync();
-```
 
-### Max concurrency
-
-Limit how many tasks run in parallel to avoid overwhelming resources:
-
-```csharp
-var graph = new TaskGraph { MaxConcurrency = 2 };
-
-graph
-    .Add("a", async () => await Task.Delay(100))
-    .Add("b", async () => await Task.Delay(100))
-    .Add("c", async () => await Task.Delay(100))
-    .Add("d", async () => await Task.Delay(100));
-
-// At most 2 tasks will execute simultaneously
-await graph.RunAsync();
+// Access results after execution
+var formatted = (string)graph.TaskResults["format"]!;
 ```
 
 ### Per-task timeout
@@ -91,25 +79,62 @@ catch (TaskTimeoutException ex)
 
 ### Progress reporting
 
-Track execution progress with the `OnTaskCompleted` callback:
+Track execution progress with the `IProgressReporter` interface:
 
 ```csharp
 var graph = new TaskGraph
 {
-    OnTaskCompleted = (name, done, total) =>
-        Console.WriteLine($"[{done}/{total}] {name} completed")
+    ProgressReporter = new ConsoleProgressReporter()
 };
 
 graph
-    .Add("clean",   () => { })
-    .Add("build",   () => { }, dependsOn: "clean")
-    .Add("test",    () => { }, dependsOn: "build");
+    .Add("clean", () => { })
+    .Add("build", () => { }, "clean")
+    .Add("test",  () => { }, "build");
 
 await graph.RunAsync();
 // Output:
-// [1/3] clean completed
-// [2/3] build completed
-// [3/3] test completed
+// [START] clean
+// [DONE]  clean (1ms)
+// [START] build
+// [DONE]  build (0ms)
+// [START] test
+// [DONE]  test (0ms)
+```
+
+### Dry-run mode
+
+Validate the graph and inspect the execution plan without running any tasks:
+
+```csharp
+var graph = new TaskGraph()
+    .Add("a", () => { })
+    .Add("b", () => { })
+    .Add("c", () => { }, "a", "b")
+    .Add("d", () => { }, "c");
+
+var plan = graph.DryRun();
+
+foreach (var (batch, i) in plan.Batches.Select((b, i) => (b, i)))
+    Console.WriteLine($"Batch {i}: {string.Join(", ", batch)}");
+// Batch 0: a, b
+// Batch 1: c
+// Batch 2: d
+```
+
+### Max concurrency
+
+Limit how many tasks run in parallel:
+
+```csharp
+var graph = new TaskGraph { MaxConcurrency = 2 };
+
+graph
+    .Add("a", async () => await Task.Delay(100))
+    .Add("b", async () => await Task.Delay(100))
+    .Add("c", async () => await Task.Delay(100));
+
+await graph.RunAsync();
 ```
 
 ### Error handling
@@ -117,18 +142,14 @@ await graph.RunAsync();
 ```csharp
 // Circular dependency
 var bad = new TaskGraph()
-    .Add("a", () => {}, dependsOn: "b")
-    .Add("b", () => {}, dependsOn: "a");
-
+    .Add("a", () => { }, "b")
+    .Add("b", () => { }, "a");
 // Throws CircularDependencyException
-await bad.RunAsync();
 
 // Missing dependency
 var missing = new TaskGraph()
-    .Add("a", () => {}, dependsOn: "nonexistent");
-
+    .Add("a", () => { }, "nonexistent");
 // Throws MissingDependencyException
-await missing.RunAsync();
 ```
 
 ## API
@@ -137,14 +158,41 @@ await missing.RunAsync();
 
 | Member | Description |
 |--------|-------------|
-| `Add(name, Action, params string[] dependsOn)` | Register a synchronous task |
-| `Add(name, Func<Task>, params string[] dependsOn)` | Register an async task |
-| `Add(name, Action, TimeSpan? timeout, params string[] dependsOn)` | Register a synchronous task with timeout |
-| `Add(name, Func<Task>, TimeSpan? timeout, params string[] dependsOn)` | Register an async task with timeout |
+| `Add(name, Action, params string[])` | Register a synchronous task |
+| `Add(name, Func<Task>, params string[])` | Register an async task |
+| `Add(name, Func<ITaskContext, Task>, params string[])` | Register an async task with context access |
+| `Add<TResult>(name, Func<ITaskContext, Task<TResult>>, params string[])` | Register a typed result task |
+| `Add(name, action, TimeSpan?, params string[])` | Register a task with timeout (sync or async) |
 | `GetExecutionOrder()` | Return names in topological order |
 | `RunAsync(CancellationToken)` | Execute all tasks; independent tasks run in parallel |
+| `DryRun()` | Validate graph and return `ExecutionPlan` without executing |
 | `MaxConcurrency` | Max parallel tasks (0 = unlimited, default) |
 | `OnTaskCompleted` | `Action<string, int, int>?` callback (taskName, completedCount, totalCount) |
+| `ProgressReporter` | `IProgressReporter?` for detailed start/complete/fail events |
+| `TaskResults` | `IReadOnlyDictionary<string, object?>` of typed task results |
+
+### `ITaskContext`
+
+| Method | Description |
+|--------|-------------|
+| `GetResult<T>(taskName)` | Retrieve a dependency's typed result |
+| `HasResult(taskName)` | Check whether a result exists for the given task |
+
+### `IProgressReporter`
+
+| Method | Description |
+|--------|-------------|
+| `OnTaskStarted(name)` | Called when a task begins execution |
+| `OnTaskCompleted(name, elapsed)` | Called when a task completes successfully |
+| `OnTaskFailed(name, exception)` | Called when a task fails |
+
+### `ExecutionPlan`
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Batches` | `IReadOnlyList<IReadOnlyList<string>>` | Ordered batches of parallelizable tasks |
+| `Order` | `IReadOnlyList<string>` | Flat topological order |
+| `TaskCount` | `int` | Total number of tasks |
 
 ### Exceptions
 
@@ -160,6 +208,13 @@ await missing.RunAsync();
 dotnet build src/Philiprehberger.TaskDependencyRunner.csproj --configuration Release
 ```
 
+## Support
+
+If you find this package useful, consider giving it a star on GitHub — it helps motivate continued maintenance and development.
+
+[![LinkedIn](https://img.shields.io/badge/Philip%20Rehberger-LinkedIn-0A66C2?logo=linkedin)](https://www.linkedin.com/in/philiprehberger)
+[![More packages](https://img.shields.io/badge/more-open%20source%20packages-blue)](https://philiprehberger.com/open-source-packages)
+
 ## License
 
-MIT
+[MIT](LICENSE)

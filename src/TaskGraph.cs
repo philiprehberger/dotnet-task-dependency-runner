@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace Philiprehberger.TaskDependencyRunner;
 
 /// <summary>
@@ -69,15 +71,17 @@ public sealed class TaskTimeoutException : Exception
 
 /// <summary>
 /// A lightweight task runner that resolves a dependency graph and executes tasks
-/// in topological order, running independent tasks in parallel.
+/// in topological order, running independent tasks in parallel. Supports typed
+/// task results, per-task timeouts, progress reporting, and dry-run mode.
 /// </summary>
 public sealed class TaskGraph
 {
     private sealed record TaskEntry(
         string Name,
-        Func<Task> Action,
+        Func<ITaskContext, Task> Action,
         IReadOnlyList<string> DependsOn,
-        TimeSpan? Timeout
+        TimeSpan? Timeout,
+        bool ProducesResult
     );
 
     private readonly Dictionary<string, TaskEntry> _tasks =
@@ -95,6 +99,19 @@ public sealed class TaskGraph
     public Action<string, int, int>? OnTaskCompleted { get; set; }
 
     /// <summary>
+    /// Optional progress reporter for detailed execution events.
+    /// </summary>
+    public IProgressReporter? ProgressReporter { get; set; }
+
+    /// <summary>
+    /// Dictionary of results produced by tasks registered with typed Add overloads.
+    /// Keyed by task name.
+    /// </summary>
+    public IReadOnlyDictionary<string, object?> TaskResults => _context._results;
+
+    private readonly TaskContext _context = new();
+
+    /// <summary>
     /// Registers an async task.
     /// </summary>
     public TaskGraph Add(string name, Func<Task> action, params string[] dependsOn)
@@ -109,7 +126,7 @@ public sealed class TaskGraph
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(action);
-        _tasks[name] = new TaskEntry(name, action, dependsOn ?? Array.Empty<string>(), timeout);
+        _tasks[name] = new TaskEntry(name, (ctx) => action(), dependsOn ?? Array.Empty<string>(), timeout, false);
         return this;
     }
 
@@ -132,6 +149,58 @@ public sealed class TaskGraph
     }
 
     /// <summary>
+    /// Registers an async task that receives an <see cref="ITaskContext"/> for accessing dependency results.
+    /// </summary>
+    public TaskGraph Add(string name, Func<ITaskContext, Task> action, params string[] dependsOn)
+    {
+        return Add(name, action, timeout: null, dependsOn);
+    }
+
+    /// <summary>
+    /// Registers an async task that receives an <see cref="ITaskContext"/> with an optional timeout.
+    /// </summary>
+    public TaskGraph Add(string name, Func<ITaskContext, Task> action, TimeSpan? timeout, params string[] dependsOn)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(action);
+        _tasks[name] = new TaskEntry(name, action, dependsOn ?? Array.Empty<string>(), timeout, false);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers an async task that produces a typed result. The result is stored in
+    /// <see cref="TaskResults"/> and can be retrieved by dependent tasks via <see cref="ITaskContext.GetResult{T}"/>.
+    /// </summary>
+    /// <typeparam name="TResult">The type of result the task produces.</typeparam>
+    public TaskGraph Add<TResult>(string name, Func<ITaskContext, Task<TResult>> action, params string[] dependsOn)
+    {
+        return Add<TResult>(name, action, timeout: null, dependsOn);
+    }
+
+    /// <summary>
+    /// Registers an async task that produces a typed result with an optional timeout.
+    /// </summary>
+    /// <typeparam name="TResult">The type of result the task produces.</typeparam>
+    public TaskGraph Add<TResult>(string name, Func<ITaskContext, Task<TResult>> action, TimeSpan? timeout, params string[] dependsOn)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(action);
+
+        _tasks[name] = new TaskEntry(
+            name,
+            async (ctx) =>
+            {
+                var result = await action(ctx);
+                ((TaskContext)ctx).SetResult(name, result);
+            },
+            dependsOn ?? Array.Empty<string>(),
+            timeout,
+            true
+        );
+        return this;
+    }
+
+    /// <summary>
     /// Returns the names of all tasks in a valid execution order (Kahn's algorithm).
     /// Throws <see cref="CircularDependencyException"/> if a cycle is detected.
     /// Throws <see cref="MissingDependencyException"/> if an unknown dependency is referenced.
@@ -140,6 +209,64 @@ public sealed class TaskGraph
     {
         ValidateDependencies();
         return TopologicalSort();
+    }
+
+    /// <summary>
+    /// Validates the dependency graph and returns an <see cref="ExecutionPlan"/> with
+    /// ordered batches of tasks that can run in parallel, without actually executing anything.
+    /// </summary>
+    /// <returns>An execution plan describing the task batches.</returns>
+    public ExecutionPlan DryRun()
+    {
+        ValidateDependencies();
+
+        var inDegree = new Dictionary<string, int>(StringComparer.Ordinal);
+        var dependents = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+
+        foreach (var name in _tasks.Keys)
+        {
+            inDegree[name] = 0;
+            dependents[name] = new List<string>();
+        }
+
+        foreach (var entry in _tasks.Values)
+        {
+            foreach (var dep in entry.DependsOn)
+            {
+                dependents[dep].Add(entry.Name);
+                inDegree[entry.Name]++;
+            }
+        }
+
+        var batches = new List<IReadOnlyList<string>>();
+        var order = new List<string>();
+        var remaining = new Dictionary<string, int>(inDegree);
+
+        while (remaining.Count > 0)
+        {
+            var batch = remaining
+                .Where(kv => kv.Value == 0)
+                .Select(kv => kv.Key)
+                .OrderBy(k => k)
+                .ToList();
+
+            if (batch.Count == 0)
+                throw new CircularDependencyException();
+
+            batches.Add(batch);
+            order.AddRange(batch);
+
+            foreach (var name in batch)
+            {
+                remaining.Remove(name);
+                foreach (var dependent in dependents[name])
+                {
+                    remaining[dependent]--;
+                }
+            }
+        }
+
+        return new ExecutionPlan(batches, order);
     }
 
     /// <summary>
@@ -225,10 +352,13 @@ public sealed class TaskGraph
         }
     }
 
-    private static async Task RunTaskAsync(TaskEntry entry, SemaphoreSlim? semaphore, CancellationToken cancellationToken)
+    private async Task RunTaskAsync(TaskEntry entry, SemaphoreSlim? semaphore, CancellationToken cancellationToken)
     {
         if (semaphore != null)
             await semaphore.WaitAsync(cancellationToken);
+
+        var sw = Stopwatch.StartNew();
+        ProgressReporter?.OnTaskStarted(entry.Name);
 
         try
         {
@@ -239,18 +369,29 @@ public sealed class TaskGraph
 
                 try
                 {
-                    var task = entry.Action();
+                    var task = entry.Action(_context);
                     await task.WaitAsync(timeoutCts.Token);
                 }
                 catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                 {
-                    throw new TaskTimeoutException(entry.Name);
+                    var ex = new TaskTimeoutException(entry.Name);
+                    ProgressReporter?.OnTaskFailed(entry.Name, ex);
+                    throw ex;
                 }
             }
             else
             {
-                await entry.Action();
+                await entry.Action(_context);
             }
+
+            sw.Stop();
+            ProgressReporter?.OnTaskCompleted(entry.Name, sw.Elapsed);
+        }
+        catch (Exception ex) when (ex is not TaskTimeoutException)
+        {
+            sw.Stop();
+            ProgressReporter?.OnTaskFailed(entry.Name, ex);
+            throw;
         }
         finally
         {

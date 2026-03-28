@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 (2026-03-27)
+
+- Add typed task results with dependency result propagation via ITaskContext
+- Add per-task timeout enforcement with TaskTimeoutException
+- Add progress reporting callbacks with IProgressReporter
+- Add dry-run mode returning execution plan without running tasks
+
 ## 0.2.5 (2026-03-22)
 
 - Add dates to changelog entries

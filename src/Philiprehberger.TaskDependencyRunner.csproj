@@ -7,7 +7,7 @@
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <PackageId>Philiprehberger.TaskDependencyRunner</PackageId>
-    <Version>0.2.5</Version>
+    <Version>0.3.0</Version>
     <Authors>Philip Rehberger</Authors>
     <Description>Lightweight task runner with dependency graph resolution and parallel execution.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
