@@ -2,12 +2,7 @@
 
 [![CI](https://github.com/philiprehberger/dotnet-task-dependency-runner/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/dotnet-task-dependency-runner/actions/workflows/ci.yml)
 [![NuGet](https://img.shields.io/nuget/v/Philiprehberger.TaskDependencyRunner.svg)](https://www.nuget.org/packages/Philiprehberger.TaskDependencyRunner)
-[![GitHub release](https://img.shields.io/github/v/release/philiprehberger/dotnet-task-dependency-runner)](https://github.com/philiprehberger/dotnet-task-dependency-runner/releases)
 [![Last updated](https://img.shields.io/github/last-commit/philiprehberger/dotnet-task-dependency-runner)](https://github.com/philiprehberger/dotnet-task-dependency-runner/commits/main)
-[![License](https://img.shields.io/github/license/philiprehberger/dotnet-task-dependency-runner)](LICENSE)
-[![Bug Reports](https://img.shields.io/github/issues/philiprehberger/dotnet-task-dependency-runner/bug)](https://github.com/philiprehberger/dotnet-task-dependency-runner/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
-[![Feature Requests](https://img.shields.io/github/issues/philiprehberger/dotnet-task-dependency-runner/enhancement)](https://github.com/philiprehberger/dotnet-task-dependency-runner/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
-[![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ec6cb9)](https://github.com/sponsors/philiprehberger)
 
 Lightweight task runner with dependency graph resolution and parallel execution.
 
@@ -210,10 +205,21 @@ dotnet build src/Philiprehberger.TaskDependencyRunner.csproj --configuration Rel
 
 ## Support
 
-If you find this package useful, consider giving it a star on GitHub — it helps motivate continued maintenance and development.
+If you find this project useful:
 
-[![LinkedIn](https://img.shields.io/badge/Philip%20Rehberger-LinkedIn-0A66C2?logo=linkedin)](https://www.linkedin.com/in/philiprehberger)
-[![More packages](https://img.shields.io/badge/more-open%20source%20packages-blue)](https://philiprehberger.com/open-source-packages)
+⭐ [Star the repo](https://github.com/philiprehberger/dotnet-task-dependency-runner)
+
+🐛 [Report issues](https://github.com/philiprehberger/dotnet-task-dependency-runner/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
+
+💡 [Suggest features](https://github.com/philiprehberger/dotnet-task-dependency-runner/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
+
+❤️ [Sponsor development](https://github.com/sponsors/philiprehberger)
+
+🌐 [All Open Source Projects](https://philiprehberger.com/open-source-packages)
+
+💻 [GitHub Profile](https://github.com/philiprehberger)
+
+🔗 [LinkedIn Profile](https://www.linkedin.com/in/philiprehberger)
 
 ## License
 
